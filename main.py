@@ -1,10 +1,7 @@
 import psycopg2
 
-def connect():
-    conn = psycopg2.connect(database='dz5_db', user='postgres',  password='admin')
-    return conn
-def db_create():
-    conn = connect()
+
+def db_create(conn):
     with conn.cursor() as cur:
         cur.execute("""
         CREATE TABLE IF NOT EXISTS client(
@@ -20,12 +17,9 @@ def db_create():
         client_id INTEGER REFERENCES client(client_id)
         );
         """)
-        conn.commit()
-    conn.close()
 
 
-def new_client(name, surname, mail, phone=None):
-    conn = connect()
+def new_client(conn, name, surname, mail, phone=None):
     with conn.cursor() as cur:
         cur.execute(f" INSERT INTO client (client_name, client_surname, client_mail) VALUES( '{name}', '{surname}', '{mail}') RETURNING client_id;")
         id = cur.fetchone()
@@ -33,50 +27,37 @@ def new_client(name, surname, mail, phone=None):
     if phone is not None:
         with conn.cursor() as cur:
             cur.execute(f" INSERT INTO phone (phone_number, client_id) VALUES ('{phone}', '{id[0]}');")
-            conn.commit()
-    conn.close()
 
 
-def new_phone(id, phone):
-    conn = connect()
+def new_phone(conn, id, phone):
     with conn.cursor() as cur:
         cur.execute(f" INSERT INTO phone (phone_number, client_id) VALUES ('{phone}', '{id}');")
-        conn.commit()
-    conn.close()
 
 
-def new_clientdata(id, name=None, surname=None, mail=None, phone=None):
-    conn = connect()
+def new_clientdata(conn, id, name=None, surname=None, mail=None, phone=None):
     with conn.cursor() as cur:
+        if name is not None:
+            cur.execute(f"UPDATE client SET client_name='{name}' WHERE client_id = '{id}' ")
+        if surname is not None:
+            cur.execute(f"UPDATE client SET client_surname='{surname}' WHERE client_id = '{id}'")
         if mail is not None:
-            cur.execute(f"UPDATE client SET client_name='{name}',  client_surname='{surname}', client_mail='{mail}' WHERE client_id = '{id}';")
-        else:
-            cur.execute(f"UPDATE client SET client_name='{name}',  client_surname='{surname}' WHERE client_id = '{id}';")
+            cur.execute(f"UPDATE client SET client_mail='{mail}' WHERE client_id = '{id}'")
         if phone is not None:
             cur.execute(f" INSERT INTO phone (phone_number, client_id) VALUES ('{phone}', '{id}');")
-    conn.commit()
-    conn.close()
 
 
-def delete_phone(id, phone):
-    conn = connect()
+def delete_phone(conn, id, phone):
     with conn.cursor() as cur:
         cur.execute(f"DELETE FROM phone WHERE client_id='{id}' AND phone_number='{phone}';")
-    conn.commit()
-    conn.close()
 
 
-def delete_client(id):
-    conn = connect()
+def delete_client(conn, id):
     with conn.cursor() as cur:
         cur.execute(f" DELETE FROM phone WHERE client_id='{id}'")
         cur.execute(f"DELETE FROM client WHERE client_id='{id}'")
-    conn.commit()
-    conn.close()
 
 
-def find_client(name=None, surname=None, mail=None, phone=None):
-    conn = connect()
+def find_client(conn, name=None, surname=None, mail=None, phone=None):
     with conn.cursor() as cur:
         if mail is not None:
             cur.execute("""SELECT client_id, client_name, client_surname FROM client
@@ -100,21 +81,21 @@ def find_client(name=None, surname=None, mail=None, phone=None):
             cur.execute("""SELECT client_id, client_name, client_surname FROM client
             WHERE client_surname=%s""", (surname,))
             print(cur.fetchall())
+
+if __name__ == '__main__':
+
+    with psycopg2.connect(database="dz5_db", user="postgres", password="admin") as conn:
+        # db_create(conn)
+        # new_client(conn, 'alex', 'petrov', 'mail@mail1', '111')
+        # new_client(conn, 'ivan', 'ivanov', 'mail@mail2', '222')
+        # new_client(conn, 'petr', 'petrov', 'mail@mail3', '333')
+        # new_phone(conn, '2', '1237')
+        # new_clientdata(conn, id=2, name='alex', surname='alexeev',mail='mail@mail.ru', phone='345')
+        # delete_phone(conn, '2', '222')
+        # delete_client(conn, '3')
+        find_client(conn, phone='345')
+        find_client(conn, mail='mail@mail1')
+        find_client(conn, surname='alexeev')
+        find_client(conn, name='alex')
     conn.close()
-
-
-
-# db_create()
-# new_client('alex', 'petrov', 'mail@mail1', '111')
-# new_client('ivan', 'ivanov', 'mail@mail2', '222')
-# new_client('petr', 'petrov', 'mail@mail3', '333')
-# new_phone('2', '1237')
-# new_clientdata(id=2, name='alex', surname='alexeev',mail='mail@mail.ru', phone='345')
-# delete_phone('2', '222')
-# delete_client('3')
-find_client(phone='345')
-find_client(mail='mail@mail1')
-find_client(surname='alexeev')
-find_client(name='alex')
-
 
